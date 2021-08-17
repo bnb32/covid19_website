@@ -1,0 +1,5 @@
+export APPLICATION="Covid19"
+export DOMAIN_NAME="covid19.eas.cornell.edu"
+export GITHUB_REPO="https://bitbucket.org/ecrl/covid19.git"
+export ADMIN_EMAIL=""
+export ADMIN_PHONE=""

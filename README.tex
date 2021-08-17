@@ -1,0 +1,33 @@
+%model odes
+\begin{array}{lcl} 
+\frac{dS}{dt} &=& -\beta S \frac{I+A}{N-Q-D-H} \\ 
+\\
+\frac{dE}{dt} &=& \beta S \frac{I+A}{N-Q-D-H}-\frac{E}{T_{e,a}} \\
+\\
+\frac{dA}{dt} &=& \frac{E}{T_{e,a}}-(\frac{p_{a,i}}{T_{a,i}}+\frac{1-p_{a,i}}{T_{a,r}})A \\
+\\
+\frac{dI}{dt} &=& p_{a,i} \frac{A}{T_{a,i}}-(\frac{p_{i,q}}{T_{i,q}}+\frac{p_{i,d}}{T_{i,d}}+\frac{p_{i,h}}{T_{i,h}}+ \frac{1-p_{i,q}-p_{i,h}-p_{i,d}}{T_{i,r}})I \\
+\\
+\frac{dQ}{dt} &=& p_{i,q}\frac{I}{T_{i,q}}-(\frac{p_{q,d}}{T_{q,d}}+\frac{p_{q,h}}{T_{q,h}}+\frac{1-p_{q,h}-p_{q,d}}{T_{q,r}})Q \\
+\\
+\frac{dH}{dt} &=& p_{q,h}\frac{Q}{T_{q,h}}+p_{i,h}\frac{I}{T_{i,h}}-(\frac{p_{h,d}}{T_{h,d}}+\frac{1-p_{h,d}}{T_{h,r}})H \\
+\\
+\frac{dR}{dt} &=& (1-p_{q,h}-p_{q,d})\frac{Q}{T_{q,r}} + (1-p_{i,q}-p_{i,h}-p_{i,d})\frac{I}{T_{i,r}} + (1-p_{a,i})\frac{A}{T_{a,r}}+p_{h,r}\frac{H}{T_{h,r}} \\
+\\
+\frac{dD}{dt} &=& p_{q,d} \frac{Q}{T_{q,d}} + p_{i,d}\frac{I}{T_{i,d}}+p_{h,d}\frac{H}{T_{h,d}} \\
+
+\end{array}
+
+%params
+\begin{array}{lcl}
+\beta & = & T_{\beta}^{-1} : S \rightarrow E \\
+\mu & = & T_{\mu}^{-1} : E \rightarrow A \\
+\sigma & = & T_{\sigma}^{-1} : A \rightarrow I \\
+\alpha & = & T_{\alpha}^{-1} : I \rightarrow Q \\
+\nu & = & T_{\nu}^{-1} : Q \rightarrow R,D \\
+\gamma & = & T_{\gamma}^{-1} : I \rightarrow R,D \\
+\rho & = & T_{\rho}^{-1} : A \rightarrow R \\
+\end{array}
+
+%probs
+p_{I\rightarrow Q}, p_{A\rightarrow I}, p_{I\rightarrow D}, p_{Q\rightarrow D}

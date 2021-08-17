@@ -1,0 +1,249 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: 'AWS::Serverless-2016-10-31'
+Description: ''
+
+Parameters:
+
+  Application:
+    Description: 'Name of the application for billing'
+    Type: 'String'
+  
+  Environment:
+    Description: 'Name of the deployment environment'
+    Type: 'String'
+    
+  DomainName:
+    Description: 'The base domain name for the website'
+    Type: 'String'
+    
+  GitHubRepo:
+    Description: 'The GitHub repository for this application'
+    Type: 'String'
+  
+  AdminEmail:
+    Description: 'Email to which administrative alerts are sent'
+    Type: 'String'
+  
+  AdminPhone:
+    Description: 'Mobile phone to which administrative alerts are sent via SMS'
+    Type: 'String'
+    
+Outputs:
+
+  # Web
+  
+  Api:
+    Value: !Sub '${Api}'
+  
+  WebBucket:
+    Value: !Sub '${WebStack.Outputs.WebBucket}'
+
+  # Build Project
+
+  BuildBucket:
+    Value: !Sub '${BuildBucket}'
+    
+  BuildProject:
+    Value: !Sub '${BuildProject}'
+
+Globals:
+  
+  Function:
+    Handler: 'entry.lambda_handler'
+    MemorySize: 1792
+    Runtime: 'python3.8'
+    Timeout: 900
+    Tags:
+      Application: !Sub '${Application}'
+      Environment: !Sub '${Environment}'
+    Environment:
+      Variables:
+        APPLICATION: !Sub '${Application}'
+        ENVIRONMENT: !Sub '${Environment}'
+        AWS_ACCOUNT_ID: !Sub '${AWS::AccountId}'
+        
+Resources:
+
+  # Api
+  
+  Api:
+    Type: 'AWS::Serverless::Api'
+    Properties:
+      EndpointConfiguration: 'REGIONAL'
+      StageName: 'api'
+      DefinitionBody:
+        swagger: 2.0
+        info:
+          title: !Sub '${Application}-${Environment}'
+        x-amazon-apigateway-binary-media-types:
+          - '*/*'
+        securityDefinitions:
+          api_key:
+            type: 'apiKey'
+            name: 'x-api-key'
+            in: 'header'
+        paths:
+          '/sir/{lat}/{lon}/{n_days}/{detection_rate}/{piq}/{pai}/{refit}':
+            get:
+              # security:
+              #   - api_key: []
+              x-amazon-apigateway-integration:
+                type: 'aws_proxy'
+                httpMethod: 'POST'
+                contentHandling: 'CONVERT_TO_BINARY'
+                responses: { }
+                uri:
+                  !Sub 'arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${SirFunction.Arn}/invocations'
+
+  # Functions
+  
+  SirFunction:
+    Type: 'AWS::Serverless::Function'
+    Properties:
+      CodeUri: './lambdas/sir'
+      Tags:
+        Resource: !Sub '${Application}-sir-function'
+      Events:
+        ApiSirGetResource:
+          Type: 'Api'
+          Properties:
+            Path: '/sir/{lat}/{lon}/{n_days}/{detection_rate}/{piq}/{pai}/{refit}'
+
+            Method: 'GET'
+            RestApiId: !Ref 'Api'
+      Policies:
+        - 'AWSLambdaBasicExecutionRole'
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: 'Allow'
+              Action:
+                - 'ssm:GetParameter'
+              Resource:
+                # - !Sub 'arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${Application}/*'
+                - !Sub 'arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:*'
+  
+  SirFunctionLogs:
+    Type: 'AWS::Logs::LogGroup'
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${SirFunction}'
+      RetentionInDays: 14
+
+  # Compute
+  
+  # ComputeStack:
+  #   Type: 'AWS::CloudFormation::Stack'
+  #   Properties:
+  #     TemplateURL: './compute.yml'
+  #     Parameters:
+  #       Application: !Sub '${Application}'
+  #       Environment: !Sub '${Environment}'
+  #     Tags:
+  #       - Key: 'Application'
+  #         Value: !Sub '${Application}'
+  #       - Key: 'Environment'
+  #         Value: !Sub '${Environment}'
+  #       - Key: 'Resource'
+  #         Value: !Sub '${Application}-${Environment}-compute-stack'
+
+  # Web
+  
+  WebStack:
+    Type: 'AWS::CloudFormation::Stack'
+    Properties:
+      TemplateURL: './web.yml'
+      Parameters:
+        Application: !Sub '${Application}'
+        Environment: !Sub '${Environment}'
+        DomainName: !Sub '${DomainName}'
+        Api: !Sub '${Api}'
+      Tags:
+        - Key: 'Application'
+          Value: !Sub '${Application}'
+        - Key: 'Environment'
+          Value: !Sub '${Environment}'
+        - Key: 'Resource'
+          Value: !Sub '${Application}-${Environment}-web-stack'
+
+  # CodeBuild Project
+
+  BuildBucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      LifecycleConfiguration:
+        Rules:
+          - Id: 'daily-cleanup'
+            Status: 'Enabled'
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 1
+            ExpirationInDays: 1
+            NoncurrentVersionExpirationInDays: 1
+      Tags:
+        - Key: 'Application'
+          Value: !Sub '${Application}'
+        - Key: 'Environment'
+          Value: !Sub '${Environment}'
+        - Key: 'Resource'
+          Value: !Sub '${Application}-build-bucket'
+
+  BuildRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: 'Allow'
+            Action: 'sts:AssumeRole'
+            Principal:
+              Service: !Sub 'codebuild.${AWS::URLSuffix}'
+      ManagedPolicyArns:
+        - !Sub 'arn:${AWS::Partition}:iam::aws:policy/AdministratorAccess'
+  
+  BuildLogs:
+    Type: 'AWS::Logs::LogGroup'
+    Properties:
+      LogGroupName: !Sub '/aws/codebuild/${BuildProject}'
+      
+  BuildProject:
+    Type: 'AWS::CodeBuild::Project'
+    Properties:
+      Artifacts:
+        Type: 'NO_ARTIFACTS'
+      ServiceRole: !Sub '${BuildRole.Arn}'
+      Source:
+        Location: !Sub '${GitHubRepo}'
+        Type: 'BITBUCKET'
+        GitCloneDepth: 0
+        BuildSpec: 'build/buildspec.yml'
+        Auth:
+          Type: 'OAUTH'
+      Triggers:
+        Webhook: true
+      Environment:
+        ComputeType: 'BUILD_GENERAL1_SMALL'
+        Image: 'aws/codebuild/amazonlinux2-x86_64-standard:2.0'
+        Type: 'LINUX_CONTAINER'
+        PrivilegedMode: true
+        EnvironmentVariables:
+          - Name: 'STACK_NAME'
+            Value: !Sub '${AWS::StackName}'
+          - Name: 'APPLICATION'
+            Value: !Sub '${Application}'
+          - Name: 'ENVIRONMENT'
+            Value: !Sub '${Environment}'
+          - Name: 'DOMAIN_NAME'
+            Value: !Sub '${DomainName}'
+          - Name: 'GITHUB_REPO'
+            Value: !Sub '${GitHubRepo}'
+          - Name: 'ADMIN_EMAIL'
+            Value: !Sub '${AdminEmail}'
+          - Name: 'ADMIN_PHONE'
+            Value: !Sub '${AdminPhone}'
+          - Name: 'BUILD_BUCKET'
+            Value: !Sub '${BuildBucket}'
+      Tags:
+        - Key: 'Application'
+          Value: !Sub '${Application}'
+        - Key: 'Environment'
+          Value: !Sub '${Environment}'
+        - Key: 'Resource'
+          Value: !Sub '${Application}-build-project'

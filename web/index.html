@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>covid-19 map</title>
+  <style>
+  
+    #map {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 45%;
+      height: 50%;
+
+    }
+    
+    #plot {
+      position: fixed;
+      top: 0;
+      right: 0;
+      width: 45%;
+      height: 50%;
+    }
+    
+    #plot_inputs {
+      position: relative;
+      float: left;
+      margin-left: 10px;
+      width: 45%;
+      height: 50%;
+    }
+    
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+    }
+
+  </style>
+  <script type="text/javascript" src="/covid.js"></script>
+</head>
+<body onload="create_map()">
+  <div id="map"></div>
+  <script type="text/javascript" src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAdWz_SegPgJPe1nC6vgJ09ojSxB_KfaOQ&libraries=visualization"></script> 
+  <div id="plot_inputs">
+    <h2>Customize Plot:
+      <input type="button" value="Plot" style="height:30px" onclick="display_sir()" />
+      <input type="button" value="Re-Fit" style="height:30px" onclick="refit_sir()" />
+    </h2>
+    <h3>Double-click Map to Set Location.</h3>
+    <p><b>Social distancing parameter estimation (fitting) may take time.</b></p> 
+    <form>  
+      
+      <label for="n_days">Projection length (days): </label>
+      <input id="n_days" name="n_days" type="number" style="width:60px" value="10" min="1" step="10" onkeydown="search()" /><br />
+
+      <label for="detection_rate">Case detection probability: </label>
+      <input id="detection_rate" name="detection_rate" type="number" style="width:60px" value="0.1" min="0.1" max="1.0" step="0.1" onkeydown="search()" /><br />
+      
+      <label for="piq">Self-Quarantine probability: </label>
+      <input id="piq" name="piq" type="number" style="width:60px" value="0.9" min="0.0" max="1.0" step="0.05" onkeydown="search()" /><br />
+
+      <label for="pai">Symptomatic probability: </label>
+      <input id="pai" name="pai" type="number" style="width:60px" value="0.6" min="0.05" max="1.0" step="0.05" onkeydown="search()" /><br />
+      
+
+    </form>
+  </div>
+  <div id="plot">
+    <img id="plot_img" src="" />
+  </div>
+</body>
+</html>
